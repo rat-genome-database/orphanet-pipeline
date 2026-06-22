@@ -34,6 +34,14 @@
                 <TimeBasedTriggeringPolicy interval="1"/>
             </Policies>
         </RollingFile>
+
+        <!-- curation lists, overwritten each run -->
+        <File name="no_match" append="false" fileName="logs/no_match.log">
+            <PatternLayout pattern="%m%n"/>
+        </File>
+        <File name="multi_match" append="false" fileName="logs/multi_match.log">
+            <PatternLayout pattern="%m%n"/>
+        </File>
     </Appenders>
 
     <Loggers>
@@ -57,6 +65,12 @@
         <Logger name="deleted" level="debug" additivity="false">
             <AppenderRef ref="deleted"/>
             <AppenderRef ref="Console" level="info"/>
+        </Logger>
+        <Logger name="no_match" level="debug" additivity="false">
+            <AppenderRef ref="no_match"/>
+        </Logger>
+        <Logger name="multi_match" level="debug" additivity="false">
+            <AppenderRef ref="multi_match"/>
         </Logger>
     </Loggers>
 </Configuration>

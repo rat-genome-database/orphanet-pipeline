@@ -2,3 +2,6 @@ Jun 22, 2026
   initial scaffold: downloads Orphadata product1 and reports cross-reference
   counts per target vocabulary (all relations vs. exact 'E' mappings);
   uses FileDownloader2 (prepend date stamp + gzip)
+  loads Orphanet ids into RDO as 'ORDO' xrefs, matching disorders to terms by
+  OMIM (tier1) then MONDO (tier2); reports INSERTED / UP_TO_DATE / DELETED,
+  and NO_MATCH / MULTI_MATCH to curation logs

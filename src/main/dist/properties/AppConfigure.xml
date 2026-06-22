@@ -4,6 +4,8 @@
 		<property name="version" value="orphanet-pipeline  -- build Jun 22, 2026" />
 		<property name="downloader" ref="downloader"/>
 		<property name="parser" ref="parser"/>
+		<property name="dao" ref="dao"/>
+		<property name="useExactMappingsOnly" value="true"/>
 	</bean>
 
 	<bean id="downloader" class="edu.mcw.rgd.process.FileDownloader2">
@@ -14,4 +16,9 @@
 	</bean>
 
 	<bean id="parser" class="edu.mcw.rgd.OrphanetPipeline.Product1Parser"/>
+
+	<bean id="dao" class="edu.mcw.rgd.OrphanetPipeline.Dao">
+		<property name="ontId" value="RDO"/>
+		<property name="xrefSource" value="ORDO"/>
+	</bean>
 </beans>
