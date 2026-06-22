@@ -1,5 +1,4 @@
 Jun 22, 2026
-  initial scaffold
-  downloads the Orphadata product1 cross-reference file (en_product1.xml) and
-  reports the number of cross-references per target vocabulary, split by
-  mapping quality (all relations vs. exact 'E' mappings)
+  initial scaffold: downloads Orphadata product1 and reports cross-reference
+  counts per target vocabulary (all relations vs. exact 'E' mappings);
+  uses FileDownloader2 (prepend date stamp + gzip)

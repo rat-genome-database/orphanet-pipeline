@@ -6,10 +6,11 @@
 		<property name="parser" ref="parser"/>
 	</bean>
 
-	<bean id="downloader" class="edu.mcw.rgd.OrphanetPipeline.OrphanetFileDownloader">
+	<bean id="downloader" class="edu.mcw.rgd.process.FileDownloader2">
 		<property name="externalFile" value="https://www.orphadata.com/data/xml/en_product1.xml"/>
 		<property name="localFile" value="data/en_product1.xml"/>
-		<property name="appendDateStamp" value="true"/>
+		<property name="prependDateStamp" value="true"/>
+		<property name="useCompression" value="true"/>
 	</bean>
 
 	<bean id="parser" class="edu.mcw.rgd.OrphanetPipeline.Product1Parser"/>

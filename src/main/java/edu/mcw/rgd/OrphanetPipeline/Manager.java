@@ -1,5 +1,6 @@
 package edu.mcw.rgd.OrphanetPipeline;
 
+import edu.mcw.rgd.process.FileDownloader2;
 import edu.mcw.rgd.process.MemoryMonitor;
 import edu.mcw.rgd.process.Utils;
 import org.apache.logging.log4j.LogManager;
@@ -23,7 +24,7 @@ import java.util.TreeMap;
 public class Manager {
 
     private String version;
-    private OrphanetFileDownloader downloader;
+    private FileDownloader2 downloader;
     private Product1Parser parser;
 
     Logger log = LogManager.getLogger("summary");
@@ -55,7 +56,7 @@ public class Manager {
 
         log.info(getVersion());
 
-        String localFile = downloader.downloadFile();
+        String localFile = downloader.downloadNew();
         log.info("downloaded Orphanet product1 file: " + localFile);
 
         List<OrphanetDisorder> disorders = parser.parse(localFile);
@@ -100,11 +101,11 @@ public class Manager {
         this.version = version;
     }
 
-    public OrphanetFileDownloader getDownloader() {
+    public FileDownloader2 getDownloader() {
         return downloader;
     }
 
-    public void setDownloader(OrphanetFileDownloader downloader) {
+    public void setDownloader(FileDownloader2 downloader) {
         this.downloader = downloader;
     }
 

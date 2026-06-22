@@ -5,16 +5,19 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Streaming (StAX) parser for the Orphadata "product1" cross-reference file
- * (e.g. en_product1.xml). StAX keeps the memory footprint flat regardless of
- * file size (the English file is ~50 MB / 11k+ disorders).
+ * (e.g. en_product1.xml, optionally gzip-compressed). StAX keeps the memory
+ * footprint flat regardless of file size (the English file is ~50 MB /
+ * 11k+ disorders).
  *
  * <p>Relevant structure:
  * <pre>
@@ -45,7 +48,7 @@ public class Product1Parser {
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
 
-        try (InputStream in = new BufferedInputStream(new FileInputStream(xmlFile))) {
+        try (InputStream in = openStream(xmlFile)) {
             XMLStreamReader r = factory.createXMLStreamReader(in, "UTF-8");
 
             Deque<String> stack = new ArrayDeque<>();
@@ -102,6 +105,12 @@ public class Product1Parser {
         }
 
         return disorders;
+    }
+
+    /** open the product1 file, transparently decompressing when it is gzipped. */
+    private static InputStream openStream(String file) throws IOException {
+        InputStream in = new BufferedInputStream(new FileInputStream(file));
+        return file.endsWith(".gz") ? new GZIPInputStream(in) : in;
     }
 
     /** "E (Exact mapping: the two concepts are equivalent)" -&gt; "E"; "NTBT (...)" -&gt; "NTBT". */
