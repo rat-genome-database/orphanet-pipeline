@@ -117,7 +117,7 @@ public class Manager {
             if (name.startsWith("MIM:")) {
                 mimMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
             } else if (name.startsWith("MONDO:")) {
-                mondoMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
+                mondoMap.computeIfAbsent(normalizeMondo(name), k -> new HashSet<>()).add(s.getTermAcc());
             } else if (name.startsWith("ORDO:")) {
                 String key = s.getTermAcc() + "|" + name;
                 if (dao.getXrefSource().equals(s.getSource())) {
@@ -236,7 +236,7 @@ public class Manager {
             if ("OMIM".equals(x.getSource())) {
                 omimNames.add("MIM:" + x.getReference());
             } else if ("MONDO".equals(x.getSource())) {
-                mondoNames.add("MONDO:" + x.getReference());
+                mondoNames.add(normalizeMondo("MONDO:" + x.getReference()));
             }
         }
 
@@ -269,6 +269,29 @@ public class Manager {
             }
         }
         return terms;
+    }
+
+    /**
+     * normalize a MONDO accession to its canonical 7-digit zero-padded form so that padded and
+     * unpadded variants compare equal, e.g. "MONDO:43361" -&gt; "MONDO:0043361".
+     */
+    static String normalizeMondo(String name) {
+        int c = name.indexOf(':');
+        if (c < 0) {
+            return name;
+        }
+        String num = name.substring(c + 1);
+        if (num.isEmpty() || !num.chars().allMatch(Character::isDigit)) {
+            return name;
+        }
+        String stripped = num.replaceFirst("^0+", "");
+        if (stripped.isEmpty()) {
+            stripped = "0";
+        }
+        if (stripped.length() < 7) {
+            stripped = "0".repeat(7 - stripped.length()) + stripped;
+        }
+        return "MONDO:" + stripped;
     }
 
     /** the OMIM/MONDO references of a disorder, for the curation logs. */
