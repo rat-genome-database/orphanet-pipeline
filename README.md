@@ -15,7 +15,7 @@ Orphanet rare-disease alignment file (CC BY 4.0, refreshed twice a year).
 
 ## What it does
 
-1. Download + StAX-parse product1.
+1. Download + StAX-parse product1 (disorders Orphanet flags obsolete — `OBSOLETE:` name or an `Obsolete entity` flag — are skipped, never loaded).
 2. Build match maps from the active RDO synonyms (`MIM:` and `MONDO:` names, **any**
    synonym type — RDO stores OMIM ids as `xref`/`alt_id`/`primary_id`).
 3. Match each disorder to a **single** RDO term, using only **exact (`E`)** references:
@@ -33,6 +33,13 @@ If the matched term already carries the same `ORDO:<code>` xref from **another**
 counts the disorder as `MATCH_DIFF_SOURCE`, and any pre-existing `source='ORDO'` duplicate
 is deleted.
 
+### Obsolete ids
+
+Disorders Orphanet flags as obsolete are skipped (never loaded). Any RDO term that still
+carries an `ORDO:` xref for a now-obsolete Orphanet id is written to `logs/obsolete.log`
+(term acc, term, id, source) for curator review; pipeline-owned (`source='ORDO'`) ones are
+also removed by reconciliation.
+
 ### Reported metrics
 
 ```
@@ -42,6 +49,8 @@ MATCH_TIER3_MESH    matched via MeSH (xref kept)
 MATCH_DIFF_SOURCE   matched, but ORDO xref already present from another source (skipped)
 NO_MATCH            no single RDO term found (logged to logs/no_match.log)
 MULTI_MATCH         ambiguous - more than one candidate term (logged to logs/multi_match.log)
+OBSOLETE_SKIPPED    disorder obsolete in Orphanet - skipped, not loaded
+OBSOLETE_ASSIGNED   RDO terms still carrying an ORDO xref for an obsolete id (logged to logs/obsolete.log)
 INSERTED            new ORDO xrefs added
 UP_TO_DATE          existing ORDO xrefs kept (last-modified refreshed)
 DELETED             stale/duplicate ORDO xrefs removed

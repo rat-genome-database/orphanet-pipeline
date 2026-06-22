@@ -1,11 +1,14 @@
 package edu.mcw.rgd.OrphanetPipeline;
 
 import edu.mcw.rgd.dao.impl.OntologyXDAO;
+import edu.mcw.rgd.datamodel.ontologyx.Term;
 import edu.mcw.rgd.datamodel.ontologyx.TermSynonym;
 
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Thin wrapper around rgdcore's {@link OntologyXDAO}; ALL database access for the
@@ -35,6 +38,15 @@ public class Dao {
      */
     public List<TermSynonym> getActiveSynonyms() throws Exception {
         return ontologyXdao.getActiveSynonyms(ontId);
+    }
+
+    /** map of term acc id -&gt; term name for all active terms (used for human-readable logs). */
+    public Map<String, String> getTermNameMap() throws Exception {
+        Map<String, String> map = new HashMap<>();
+        for (Term t : ontologyXdao.getActiveTerms(ontId)) {
+            map.put(t.getAccId(), t.getTerm());
+        }
+        return map;
     }
 
     /** insert one ORDO xref (type 'xref', source 'ORDO') for the given term; returns the new synonym key. */

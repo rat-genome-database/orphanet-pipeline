@@ -42,6 +42,9 @@
         <File name="multi_match" append="false" fileName="logs/multi_match.log">
             <PatternLayout pattern="%m%n"/>
         </File>
+        <File name="obsolete" append="false" fileName="logs/obsolete.log">
+            <PatternLayout pattern="%m%n"/>
+        </File>
     </Appenders>
 
     <Loggers>
@@ -71,6 +74,9 @@
         </Logger>
         <Logger name="multi_match" level="debug" additivity="false">
             <AppenderRef ref="multi_match"/>
+        </Logger>
+        <Logger name="obsolete" level="debug" additivity="false">
+            <AppenderRef ref="obsolete"/>
         </Logger>
     </Loggers>
 </Configuration>

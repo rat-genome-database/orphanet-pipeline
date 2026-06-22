@@ -8,3 +8,5 @@ Jun 22, 2026
   skip/remove ORDO xrefs already present from another source (MATCH_DIFF_SOURCE)
   normalize MONDO accessions to 7-digit form when matching
   add TIER3 matching by MeSH id
+  skip obsolete Orphanet disorders; list RDO terms still carrying obsolete
+  ORDO ids in obsolete.log

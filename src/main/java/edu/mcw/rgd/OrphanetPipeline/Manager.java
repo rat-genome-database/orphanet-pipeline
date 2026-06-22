@@ -47,6 +47,7 @@ public class Manager {
     Logger deletedLog = LogManager.getLogger("deleted");
     Logger noMatchLog = LogManager.getLogger("no_match");
     Logger multiMatchLog = LogManager.getLogger("multi_match");
+    Logger obsoleteLog = LogManager.getLogger("obsolete");
 
     enum Status { TIER1, TIER2, TIER3, NO_MATCH, MULTI_MATCH }
 
@@ -109,6 +110,7 @@ public class Manager {
         Map<String, Set<String>> meshMap = new HashMap<>();
         Map<String, TermSynonym> existingOrdo = new HashMap<>();   // ORDO: xrefs owned by this pipeline (source 'ORDO')
         Set<String> otherSourceOrdo = new HashSet<>();             // same ORDO: xref already present from another source (e.g. OBO)
+        List<TermSynonym> allOrdoSyns = new ArrayList<>();          // every ORDO: xref (any source), for the obsolete report
 
         for (TermSynonym s : dao.getActiveSynonyms()) {
             String name = s.getName();
@@ -122,6 +124,7 @@ public class Manager {
             } else if (name.startsWith("MESH:")) {
                 meshMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
             } else if (name.startsWith("ORDO:")) {
+                allOrdoSyns.add(s);
                 String key = s.getTermAcc() + "|" + name;
                 if (dao.getXrefSource().equals(s.getSource())) {
                     existingOrdo.put(key, s);
@@ -136,13 +139,19 @@ public class Manager {
                 + Utils.formatThousands(existingOrdo.size()) + " (source " + dao.getXrefSource() + "), "
                 + Utils.formatThousands(otherSourceOrdo.size()) + " (other sources)");
 
-        int tier1 = 0, tier2 = 0, tier3 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0;
+        int tier1 = 0, tier2 = 0, tier3 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0, obsolete = 0;
+        Set<String> obsoleteOrphaCodes = new HashSet<>(); // codes of obsolete disorders (for the obsolete report)
         Set<String> desired = new HashSet<>();            // termAcc|name we want present
         List<String[]> toInsert = new ArrayList<>();      // {termAcc, name}
         List<TermSynonym> toTouch = new ArrayList<>();     // up-to-date synonyms to refresh
 
         for (OrphanetDisorder d : disorders) {
             if (d.getOrphaCode() == null || d.getOrphaCode().isEmpty()) {
+                continue;
+            }
+            if (d.isObsolete()) {
+                obsolete++;
+                obsoleteOrphaCodes.add(d.getOrphaCode());
                 continue;
             }
             Match m = match(d, mimMap, mondoMap, meshMap);
@@ -195,6 +204,18 @@ public class Manager {
             }
         }
 
+        // report any RDO terms (any source) that still carry an ORDO xref for a now-obsolete Orphanet id
+        Map<String, String> termNames = dao.getTermNameMap();
+        int obsoleteAssigned = 0;
+        for (TermSynonym s : allOrdoSyns) {
+            String code = s.getName().substring("ORDO:".length());
+            if (obsoleteOrphaCodes.contains(code)) {
+                obsoleteLog.info(s.getTermAcc() + "\t" + termNames.getOrDefault(s.getTermAcc(), "")
+                        + "\t" + s.getName() + "\t" + s.getSource());
+                obsoleteAssigned++;
+            }
+        }
+
         int inserted = applyChanges(toInsert, toTouch, toDelete, runDate);
 
         log.info("");
@@ -204,6 +225,8 @@ public class Manager {
         log.info(String.format("%-18s: %s", "MATCH_DIFF_SOURCE", Utils.formatThousands(matchDiffSource)));
         log.info(String.format("%-18s: %s", "NO_MATCH", Utils.formatThousands(noMatch)));
         log.info(String.format("%-18s: %s", "MULTI_MATCH", Utils.formatThousands(multiMatch)));
+        log.info(String.format("%-18s: %s", "OBSOLETE_SKIPPED", Utils.formatThousands(obsolete)));
+        log.info(String.format("%-18s: %s", "OBSOLETE_ASSIGNED", Utils.formatThousands(obsoleteAssigned)));
         log.info("");
         log.info(String.format("%-18s: %s", "INSERTED", Utils.formatThousands(inserted)));
         log.info(String.format("%-18s: %s", "UP_TO_DATE", Utils.formatThousands(toTouch.size())));

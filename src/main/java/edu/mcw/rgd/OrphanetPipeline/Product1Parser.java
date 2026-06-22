@@ -82,7 +82,16 @@ public class Product1Parser {
                         if (name.equals("OrphaCode") && "Disorder".equals(parent)) {
                             if (cur != null) cur.setOrphaCode(val);
                         } else if (name.equals("Name") && "Disorder".equals(parent)) {
-                            if (cur != null) cur.setName(val);
+                            if (cur != null) {
+                                cur.setName(val);
+                                if (val.toUpperCase().startsWith("OBSOLETE")) {
+                                    cur.setObsolete(true);
+                                }
+                            }
+                        } else if (name.equals("Label") && "DisorderFlag".equals(parent)) {
+                            if (cur != null && "Obsolete entity".equals(val)) {
+                                cur.setObsolete(true);
+                            }
                         } else if (name.equals("Source") && "ExternalReference".equals(parent)) {
                             if (xref != null) xref.setSource(val);
                         } else if (name.equals("Reference") && "ExternalReference".equals(parent)) {
