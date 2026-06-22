@@ -5,3 +5,4 @@ Jun 22, 2026
   loads Orphanet ids into RDO as 'ORDO' xrefs, matching disorders to terms by
   OMIM (tier1) then MONDO (tier2); reports INSERTED / UP_TO_DATE / DELETED,
   and NO_MATCH / MULTI_MATCH to curation logs
+  skip/remove ORDO xrefs already present from another source (MATCH_DIFF_SOURCE)

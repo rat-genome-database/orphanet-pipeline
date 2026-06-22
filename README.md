@@ -7,31 +7,56 @@ Loads Orphanet (ORDO) ids as cross-references into the **RGD Disease Ontology (R
 [Orphadata "product1"](https://sciences.orphadata.com/alignments/) — the authoritative
 Orphanet rare-disease alignment file (CC BY 4.0, refreshed twice a year).
 
-- File: `https://www.orphadata.com/data/xml/en_product1.xml` (English, XML)
-- Each `<Disorder>` has an `<OrphaCode>` plus a list of `<ExternalReference>` entries
-  mapping it to **OMIM, MONDO, MeSH, UMLS, MedDRA, GARD, ICD-10 and ICD-11**.
-- Every reference carries a mapping-quality relation:
-  - `E` — exact (the two concepts are equivalent) — the ones we load
-  - `NTBT` / `BTNT` — ORPHAcode is narrower / broader than the target code
-  - `ND`, `W`, ... — other relations
-- Orphanet ids are stored in RDO under the `ORDO:` prefix (RGD convention; matches the
-  `Orphanet:` -> `ORDO:` rewrite in `ontology-load-pipeline`).
+- File: `https://www.orphadata.com/data/xml/en_product1.xml` (English, XML), downloaded
+  gzipped with a date-stamped name via `FileDownloader2`.
+- Each `<Disorder>` has an `<OrphaCode>` plus `<ExternalReference>` entries to
+  **OMIM, MONDO, MeSH, UMLS, MedDRA, GARD, ICD-10 and ICD-11**, each with a mapping
+  relation: `E` (exact), `NTBT`/`BTNT` (narrower/broader), etc.
 
-## How it joins to RDO
+## What it does
 
-RDO terms already carry cross-references that act as join keys, notably
-`MONDO:` (~6.3k terms) and `MIM:`/OMIM (~7.3k terms). The load matches an Orphanet
-disorder's exact OMIM / MONDO (and optionally MeSH / GARD) reference to the RDO term
-that already carries that same xref, then adds `ORDO:<OrphaCode>` to it.
+1. Download + StAX-parse product1.
+2. Build match maps from the active RDO synonyms (`MIM:` and `MONDO:` names, **any**
+   synonym type — RDO stores OMIM ids as `xref`/`alt_id`/`primary_id`).
+3. Match each disorder to a **single** RDO term, using only **exact (`E`)** references:
+   - **TIER1** — by the disorder's OMIM reference(s) → RDO `MIM:` synonyms
+   - **TIER2** — if TIER1 gives no/ambiguous match, by MONDO reference(s) → RDO `MONDO:` synonyms
+4. Attach `ORDO:<OrphaCode>` to the matched term as a synonym of type `xref`, source `ORDO`.
+5. Reconcile (insert / up-to-date / delete) only the xrefs owned by this pipeline
+   (source `ORDO`); xrefs maintained by other sources (OBO, RGD, BULKLOAD, ...) are left alone.
 
-> RDO already contains ~2.5k `ORDO:` xrefs inherited from the Human Disease Ontology;
-> this pipeline expands and refreshes that coverage from the authoritative source.
+### Duplicate avoidance
 
-## Current status
+If the matched term already carries the same `ORDO:<code>` xref from **another** source
+(e.g. the DO/`OBO` import), the pipeline does **not** add a `source='ORDO'` duplicate — it
+counts the disorder as `MATCH_DIFF_SOURCE`, and any pre-existing `source='ORDO'` duplicate
+is deleted.
 
-First slice only: **download + parse + report counts** (no database writes yet).
-It downloads product1, parses it with a streaming StAX parser, and logs the number of
-cross-references per target vocabulary, all relations vs. exact `E` mappings.
+### Reported metrics
+
+```
+MATCH_TIER1_OMIM    matched via OMIM (xref kept)
+MATCH_TIER2_MONDO   matched via MONDO (xref kept)
+MATCH_DIFF_SOURCE   matched, but ORDO xref already present from another source (skipped)
+NO_MATCH            no single RDO term found (logged to logs/no_match.log)
+MULTI_MATCH         ambiguous - more than one candidate term (logged to logs/multi_match.log)
+INSERTED            new ORDO xrefs added
+UP_TO_DATE          existing ORDO xrefs kept (last-modified refreshed)
+DELETED             stale/duplicate ORDO xrefs removed
+```
+
+> RDO uses the `ORDO:` prefix for Orphanet ids (RGD convention; matches the
+> `Orphanet:` → `ORDO:` rewrite in `ontology-load-pipeline`).
+
+## Configuration
+
+`src/main/dist/properties/AppConfigure.xml`:
+- `downloader` — product1 url + local file (`FileDownloader2`, `prependDateStamp`, `useCompression`)
+- `dao` — `ontId` (RDO), `xrefSource` (ORDO)
+- `main.useExactMappingsOnly` — restrict matching to exact (`E`) references (default true)
+
+Pass `-dryRun` on the command line to compute and report all counts **without** writing
+to the database.
 
 ## Build & run
 
@@ -40,6 +65,4 @@ JAVA_HOME=/c/app/java/jdk-17.0.8 ./gradlew clean createDistro
 # deployed copy is driven by src/main/dist/run.sh
 ```
 
-Configuration (source url, local file) lives in
-`src/main/dist/properties/AppConfigure.xml`; logging in
-`src/main/dist/properties/log4j2.xml`.
+Logging is configured in `src/main/dist/properties/log4j2.xml`.

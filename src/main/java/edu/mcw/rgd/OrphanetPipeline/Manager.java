@@ -106,7 +106,8 @@ public class Manager {
         // and the set of ORDO xrefs already owned by this pipeline (source 'ORDO')
         Map<String, Set<String>> mimMap = new HashMap<>();
         Map<String, Set<String>> mondoMap = new HashMap<>();
-        Map<String, TermSynonym> existingOrdo = new HashMap<>();
+        Map<String, TermSynonym> existingOrdo = new HashMap<>();   // ORDO: xrefs owned by this pipeline (source 'ORDO')
+        Set<String> otherSourceOrdo = new HashSet<>();             // same ORDO: xref already present from another source (e.g. OBO)
 
         for (TermSynonym s : dao.getActiveSynonyms()) {
             String name = s.getName();
@@ -117,16 +118,21 @@ public class Manager {
                 mimMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
             } else if (name.startsWith("MONDO:")) {
                 mondoMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
-            }
-            if (dao.getXrefSource().equals(s.getSource()) && name.startsWith("ORDO:")) {
-                existingOrdo.put(s.getTermAcc() + "|" + name, s);
+            } else if (name.startsWith("ORDO:")) {
+                String key = s.getTermAcc() + "|" + name;
+                if (dao.getXrefSource().equals(s.getSource())) {
+                    existingOrdo.put(key, s);
+                } else {
+                    otherSourceOrdo.add(key);
+                }
             }
         }
         log.info("RDO match keys: " + Utils.formatThousands(mimMap.size()) + " OMIM, "
-                + Utils.formatThousands(mondoMap.size()) + " MONDO; existing ORDO xrefs (source "
-                + dao.getXrefSource() + "): " + Utils.formatThousands(existingOrdo.size()));
+                + Utils.formatThousands(mondoMap.size()) + " MONDO; existing ORDO xrefs: "
+                + Utils.formatThousands(existingOrdo.size()) + " (source " + dao.getXrefSource() + "), "
+                + Utils.formatThousands(otherSourceOrdo.size()) + " (other sources)");
 
-        int tier1 = 0, tier2 = 0, noMatch = 0, multiMatch = 0;
+        int tier1 = 0, tier2 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0;
         Set<String> desired = new HashSet<>();            // termAcc|name we want present
         List<String[]> toInsert = new ArrayList<>();      // {termAcc, name}
         List<TermSynonym> toTouch = new ArrayList<>();     // up-to-date synonyms to refresh
@@ -136,24 +142,35 @@ public class Manager {
                 continue;
             }
             Match m = match(d, mimMap, mondoMap);
-            switch (m.status) {
-                case TIER1 -> tier1++;
-                case TIER2 -> tier2++;
-                case NO_MATCH -> {
-                    noMatch++;
-                    noMatchLog.info("ORDO:" + d.getOrphaCode() + "\t" + d.getName() + "\t" + refsForLog(d));
-                    continue;
-                }
-                case MULTI_MATCH -> {
-                    multiMatch++;
-                    multiMatchLog.info("ORDO:" + d.getOrphaCode() + "\t" + d.getName()
-                            + "\tcandidates=" + m.candidates + "\t" + refsForLog(d));
-                    continue;
-                }
+            if (m.status == Status.NO_MATCH) {
+                noMatch++;
+                noMatchLog.info("ORDO:" + d.getOrphaCode() + "\t" + d.getName() + "\t" + refsForLog(d));
+                continue;
+            }
+            if (m.status == Status.MULTI_MATCH) {
+                multiMatch++;
+                multiMatchLog.info("ORDO:" + d.getOrphaCode() + "\t" + d.getName()
+                        + "\tcandidates=" + m.candidates + "\t" + refsForLog(d));
+                continue;
             }
 
+            // matched a single RDO term
             String name = "ORDO:" + d.getOrphaCode();
             String key = m.termAcc + "|" + name;
+
+            // if the term already carries this ORDO xref from another source (e.g. OBO), do not add our
+            // own duplicate; just count it. Any pre-existing source 'ORDO' duplicate is left out of
+            // 'desired' and so gets removed by the stale-delete sweep below.
+            if (otherSourceOrdo.contains(key)) {
+                matchDiffSource++;
+                continue;
+            }
+
+            if (m.status == Status.TIER1) {
+                tier1++;
+            } else {
+                tier2++;
+            }
             if (!desired.add(key)) {
                 continue; // same term/code already accounted for
             }
@@ -176,14 +193,15 @@ public class Manager {
         int inserted = applyChanges(toInsert, toTouch, toDelete, runDate);
 
         log.info("");
-        log.info("matched TIER1 (OMIM) : " + Utils.formatThousands(tier1));
-        log.info("matched TIER2 (MONDO): " + Utils.formatThousands(tier2));
-        log.info("NO_MATCH             : " + Utils.formatThousands(noMatch));
-        log.info("MULTI_MATCH          : " + Utils.formatThousands(multiMatch));
+        log.info(String.format("%-18s: %s", "MATCH_TIER1_OMIM", Utils.formatThousands(tier1)));
+        log.info(String.format("%-18s: %s", "MATCH_TIER2_MONDO", Utils.formatThousands(tier2)));
+        log.info(String.format("%-18s: %s", "MATCH_DIFF_SOURCE", Utils.formatThousands(matchDiffSource)));
+        log.info(String.format("%-18s: %s", "NO_MATCH", Utils.formatThousands(noMatch)));
+        log.info(String.format("%-18s: %s", "MULTI_MATCH", Utils.formatThousands(multiMatch)));
         log.info("");
-        log.info("ORDO xrefs INSERTED  : " + Utils.formatThousands(inserted));
-        log.info("ORDO xrefs UP_TO_DATE: " + Utils.formatThousands(toTouch.size()));
-        log.info("ORDO xrefs DELETED   : " + Utils.formatThousands(toDelete.size()));
+        log.info(String.format("%-18s: %s", "INSERTED", Utils.formatThousands(inserted)));
+        log.info(String.format("%-18s: %s", "UP_TO_DATE", Utils.formatThousands(toTouch.size())));
+        log.info(String.format("%-18s: %s", "DELETED", Utils.formatThousands(toDelete.size())));
     }
 
     /** apply the reconciliation to the database (unless dry-run); returns number inserted. */
