@@ -1,0 +1,16 @@
+<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
+<beans>
+	<bean id="main" class="edu.mcw.rgd.OrphanetPipeline.Manager">
+		<property name="version" value="orphanet-pipeline  -- build Jun 22, 2026" />
+		<property name="downloader" ref="downloader"/>
+		<property name="parser" ref="parser"/>
+	</bean>
+
+	<bean id="downloader" class="edu.mcw.rgd.OrphanetPipeline.OrphanetFileDownloader">
+		<property name="externalFile" value="https://www.orphadata.com/data/xml/en_product1.xml"/>
+		<property name="localFile" value="data/en_product1.xml"/>
+		<property name="appendDateStamp" value="true"/>
+	</bean>
+
+	<bean id="parser" class="edu.mcw.rgd.OrphanetPipeline.Product1Parser"/>
+</beans>
