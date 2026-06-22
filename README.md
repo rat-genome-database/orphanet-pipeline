@@ -21,6 +21,7 @@ Orphanet rare-disease alignment file (CC BY 4.0, refreshed twice a year).
 3. Match each disorder to a **single** RDO term, using only **exact (`E`)** references:
    - **TIER1** — by the disorder's OMIM reference(s) → RDO `MIM:` synonyms
    - **TIER2** — if TIER1 gives no/ambiguous match, by MONDO reference(s) → RDO `MONDO:` synonyms
+   - **TIER3** — if still no/ambiguous match, by MeSH reference(s) → RDO `MESH:` synonyms
 4. Attach `ORDO:<OrphaCode>` to the matched term as a synonym of type `xref`, source `ORDO`.
 5. Reconcile (insert / up-to-date / delete) only the xrefs owned by this pipeline
    (source `ORDO`); xrefs maintained by other sources (OBO, RGD, BULKLOAD, ...) are left alone.
@@ -37,6 +38,7 @@ is deleted.
 ```
 MATCH_TIER1_OMIM    matched via OMIM (xref kept)
 MATCH_TIER2_MONDO   matched via MONDO (xref kept)
+MATCH_TIER3_MESH    matched via MeSH (xref kept)
 MATCH_DIFF_SOURCE   matched, but ORDO xref already present from another source (skipped)
 NO_MATCH            no single RDO term found (logged to logs/no_match.log)
 MULTI_MATCH         ambiguous - more than one candidate term (logged to logs/multi_match.log)

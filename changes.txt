@@ -7,3 +7,4 @@ Jun 22, 2026
   and NO_MATCH / MULTI_MATCH to curation logs
   skip/remove ORDO xrefs already present from another source (MATCH_DIFF_SOURCE)
   normalize MONDO accessions to 7-digit form when matching
+  add TIER3 matching by MeSH id

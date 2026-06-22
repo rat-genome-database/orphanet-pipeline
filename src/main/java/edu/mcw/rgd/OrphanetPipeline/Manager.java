@@ -48,7 +48,7 @@ public class Manager {
     Logger noMatchLog = LogManager.getLogger("no_match");
     Logger multiMatchLog = LogManager.getLogger("multi_match");
 
-    enum Status { TIER1, TIER2, NO_MATCH, MULTI_MATCH }
+    enum Status { TIER1, TIER2, TIER3, NO_MATCH, MULTI_MATCH }
 
     public static void main(String[] args) throws Exception {
         DefaultListableBeanFactory bf = new DefaultListableBeanFactory();
@@ -106,6 +106,7 @@ public class Manager {
         // and the set of ORDO xrefs already owned by this pipeline (source 'ORDO')
         Map<String, Set<String>> mimMap = new HashMap<>();
         Map<String, Set<String>> mondoMap = new HashMap<>();
+        Map<String, Set<String>> meshMap = new HashMap<>();
         Map<String, TermSynonym> existingOrdo = new HashMap<>();   // ORDO: xrefs owned by this pipeline (source 'ORDO')
         Set<String> otherSourceOrdo = new HashSet<>();             // same ORDO: xref already present from another source (e.g. OBO)
 
@@ -118,6 +119,8 @@ public class Manager {
                 mimMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
             } else if (name.startsWith("MONDO:")) {
                 mondoMap.computeIfAbsent(normalizeMondo(name), k -> new HashSet<>()).add(s.getTermAcc());
+            } else if (name.startsWith("MESH:")) {
+                meshMap.computeIfAbsent(name, k -> new HashSet<>()).add(s.getTermAcc());
             } else if (name.startsWith("ORDO:")) {
                 String key = s.getTermAcc() + "|" + name;
                 if (dao.getXrefSource().equals(s.getSource())) {
@@ -128,11 +131,12 @@ public class Manager {
             }
         }
         log.info("RDO match keys: " + Utils.formatThousands(mimMap.size()) + " OMIM, "
-                + Utils.formatThousands(mondoMap.size()) + " MONDO; existing ORDO xrefs: "
+                + Utils.formatThousands(mondoMap.size()) + " MONDO, "
+                + Utils.formatThousands(meshMap.size()) + " MESH; existing ORDO xrefs: "
                 + Utils.formatThousands(existingOrdo.size()) + " (source " + dao.getXrefSource() + "), "
                 + Utils.formatThousands(otherSourceOrdo.size()) + " (other sources)");
 
-        int tier1 = 0, tier2 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0;
+        int tier1 = 0, tier2 = 0, tier3 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0;
         Set<String> desired = new HashSet<>();            // termAcc|name we want present
         List<String[]> toInsert = new ArrayList<>();      // {termAcc, name}
         List<TermSynonym> toTouch = new ArrayList<>();     // up-to-date synonyms to refresh
@@ -141,7 +145,7 @@ public class Manager {
             if (d.getOrphaCode() == null || d.getOrphaCode().isEmpty()) {
                 continue;
             }
-            Match m = match(d, mimMap, mondoMap);
+            Match m = match(d, mimMap, mondoMap, meshMap);
             if (m.status == Status.NO_MATCH) {
                 noMatch++;
                 noMatchLog.info("ORDO:" + d.getOrphaCode() + "\t" + d.getName() + "\t" + refsForLog(d));
@@ -166,10 +170,11 @@ public class Manager {
                 continue;
             }
 
-            if (m.status == Status.TIER1) {
-                tier1++;
-            } else {
-                tier2++;
+            switch (m.status) {
+                case TIER1 -> tier1++;
+                case TIER2 -> tier2++;
+                case TIER3 -> tier3++;
+                default -> { }
             }
             if (!desired.add(key)) {
                 continue; // same term/code already accounted for
@@ -195,6 +200,7 @@ public class Manager {
         log.info("");
         log.info(String.format("%-18s: %s", "MATCH_TIER1_OMIM", Utils.formatThousands(tier1)));
         log.info(String.format("%-18s: %s", "MATCH_TIER2_MONDO", Utils.formatThousands(tier2)));
+        log.info(String.format("%-18s: %s", "MATCH_TIER3_MESH", Utils.formatThousands(tier3)));
         log.info(String.format("%-18s: %s", "MATCH_DIFF_SOURCE", Utils.formatThousands(matchDiffSource)));
         log.info(String.format("%-18s: %s", "NO_MATCH", Utils.formatThousands(noMatch)));
         log.info(String.format("%-18s: %s", "MULTI_MATCH", Utils.formatThousands(multiMatch)));
@@ -225,10 +231,12 @@ public class Manager {
     }
 
     /** two-tier match: OMIM first, then MONDO. */
-    Match match(OrphanetDisorder d, Map<String, Set<String>> mimMap, Map<String, Set<String>> mondoMap) {
+    Match match(OrphanetDisorder d, Map<String, Set<String>> mimMap, Map<String, Set<String>> mondoMap,
+                Map<String, Set<String>> meshMap) {
 
         Set<String> omimNames = new HashSet<>();
         Set<String> mondoNames = new HashSet<>();
+        Set<String> meshNames = new HashSet<>();
         for (Xref x : d.getXrefs()) {
             if (useExactMappingsOnly && !x.isExact()) {
                 continue;
@@ -237,25 +245,33 @@ public class Manager {
                 omimNames.add("MIM:" + x.getReference());
             } else if ("MONDO".equals(x.getSource())) {
                 mondoNames.add(normalizeMondo("MONDO:" + x.getReference()));
+            } else if ("MeSH".equals(x.getSource())) {
+                meshNames.add("MESH:" + x.getReference());
             }
         }
 
-        // TIER1 - OMIM
+        // first tier with a single hit wins: TIER1 OMIM, TIER2 MONDO, TIER3 MeSH
         Set<String> t1 = lookup(omimNames, mimMap);
         if (t1.size() == 1) {
             return new Match(Status.TIER1, t1.iterator().next(), t1);
         }
-        // TIER2 - MONDO (when TIER1 is empty or ambiguous)
         Set<String> t2 = lookup(mondoNames, mondoMap);
         if (t2.size() == 1) {
             return new Match(Status.TIER2, t2.iterator().next(), t2);
         }
+        Set<String> t3 = lookup(meshNames, meshMap);
+        if (t3.size() == 1) {
+            return new Match(Status.TIER3, t3.iterator().next(), t3);
+        }
+        // no single hit anywhere: ambiguous if any tier had >1 candidate, else no match
+        if (t1.size() > 1) {
+            return new Match(Status.MULTI_MATCH, null, t1);
+        }
         if (t2.size() > 1) {
             return new Match(Status.MULTI_MATCH, null, t2);
         }
-        // TIER2 empty: ambiguous in TIER1 -> MULTI_MATCH, nothing anywhere -> NO_MATCH
-        if (t1.size() > 1) {
-            return new Match(Status.MULTI_MATCH, null, t1);
+        if (t3.size() > 1) {
+            return new Match(Status.MULTI_MATCH, null, t3);
         }
         return new Match(Status.NO_MATCH, null, t1);
     }
