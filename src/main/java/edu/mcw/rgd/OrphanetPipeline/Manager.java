@@ -26,8 +26,9 @@ import java.util.TreeMap;
  * <p>For every Orphanet disorder we find the single matching RDO term and attach
  * an 'ORDO:&lt;OrphaCode&gt;' xref (synonym type 'xref', source 'ORDO'):
  * <ol>
- *   <li>TIER1 - match by the disorder's OMIM reference(s) against RDO 'MIM:' synonyms</li>
- *   <li>TIER2 - if TIER1 gives no match or more than one, match by MONDO reference(s)</li>
+ *   <li>TIER1 - match by the disorder's MeSH reference(s) against RDO 'MESH:' synonyms</li>
+ *   <li>TIER2 - if TIER1 gives no match or more than one, match by MONDO reference(s) against RDO 'MONDO:' synonyms</li>
+ *   <li>TIER3 - if still no match or more than one, match by OMIM reference(s) against RDO 'MIM:' synonyms</li>
  *   <li>otherwise the disorder is reported as NO_MATCH or MULTI_MATCH</li>
  * </ol>
  * Only the ORDO xrefs owned by this pipeline (source 'ORDO') are reconciled
@@ -103,7 +104,7 @@ public class Manager {
 
         Date runDate = new Date();
 
-        // build OMIM/MONDO match maps (synonym name -> set of term accs, ANY synonym type),
+        // build MeSH/MONDO/OMIM match maps (synonym name -> set of term accs, ANY synonym type),
         // and the set of ORDO xrefs already owned by this pipeline (source 'ORDO')
         Map<String, Set<String>> mimMap = new HashMap<>();
         Map<String, Set<String>> mondoMap = new HashMap<>();
@@ -219,9 +220,9 @@ public class Manager {
         int inserted = applyChanges(toInsert, toTouch, toDelete, runDate);
 
         log.info("");
-        log.info(String.format("%-18s: %s", "MATCH_TIER1_OMIM", Utils.formatThousands(tier1)));
+        log.info(String.format("%-18s: %s", "MATCH_TIER1_MESH", Utils.formatThousands(tier1)));
         log.info(String.format("%-18s: %s", "MATCH_TIER2_MONDO", Utils.formatThousands(tier2)));
-        log.info(String.format("%-18s: %s", "MATCH_TIER3_MESH", Utils.formatThousands(tier3)));
+        log.info(String.format("%-18s: %s", "MATCH_TIER3_OMIM", Utils.formatThousands(tier3)));
         log.info(String.format("%-18s: %s", "MATCH_DIFF_SOURCE", Utils.formatThousands(matchDiffSource)));
         log.info(String.format("%-18s: %s", "NO_MATCH", Utils.formatThousands(noMatch)));
         log.info(String.format("%-18s: %s", "MULTI_MATCH", Utils.formatThousands(multiMatch)));
@@ -253,7 +254,7 @@ public class Manager {
         return inserted;
     }
 
-    /** two-tier match: OMIM first, then MONDO. */
+    /** three-tier match: MeSH first, then MONDO, then OMIM. */
     Match match(OrphanetDisorder d, Map<String, Set<String>> mimMap, Map<String, Set<String>> mondoMap,
                 Map<String, Set<String>> meshMap) {
 
@@ -273,8 +274,8 @@ public class Manager {
             }
         }
 
-        // first tier with a single hit wins: TIER1 OMIM, TIER2 MONDO, TIER3 MeSH
-        Set<String> t1 = lookup(omimNames, mimMap);
+        // first tier with a single hit wins: TIER1 MeSH, TIER2 MONDO, TIER3 OMIM
+        Set<String> t1 = lookup(meshNames, meshMap);
         if (t1.size() == 1) {
             return new Match(Status.TIER1, t1.iterator().next(), t1);
         }
@@ -282,7 +283,7 @@ public class Manager {
         if (t2.size() == 1) {
             return new Match(Status.TIER2, t2.iterator().next(), t2);
         }
-        Set<String> t3 = lookup(meshNames, meshMap);
+        Set<String> t3 = lookup(omimNames, mimMap);
         if (t3.size() == 1) {
             return new Match(Status.TIER3, t3.iterator().next(), t3);
         }
@@ -333,11 +334,11 @@ public class Manager {
         return "MONDO:" + stripped;
     }
 
-    /** the OMIM/MONDO references of a disorder, for the curation logs. */
+    /** the MeSH/MONDO/OMIM references of a disorder, for the curation logs. */
     private String refsForLog(OrphanetDisorder d) {
         StringBuilder sb = new StringBuilder();
         for (Xref x : d.getXrefs()) {
-            if ("OMIM".equals(x.getSource()) || "MONDO".equals(x.getSource())) {
+            if ("MeSH".equals(x.getSource()) || "MONDO".equals(x.getSource()) || "OMIM".equals(x.getSource())) {
                 if (sb.length() > 0) {
                     sb.append(',');
                 }
@@ -379,7 +380,7 @@ public class Manager {
     /** result of matching a disorder to RDO. */
     static final class Match {
         final Status status;
-        final String termAcc;      // the single matched term (null unless TIER1/TIER2)
+        final String termAcc;      // the single matched term (null unless TIER1/TIER2/TIER3)
         final Set<String> candidates;
 
         Match(Status status, String termAcc, Set<String> candidates) {

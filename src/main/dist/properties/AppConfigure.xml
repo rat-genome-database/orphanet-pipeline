@@ -1,7 +1,7 @@
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
 <beans>
 	<bean id="main" class="edu.mcw.rgd.OrphanetPipeline.Manager">
-		<property name="version" value="orphanet-pipeline  -- build Jun 22, 2026" />
+		<property name="version" value="orphanet-pipeline  -- build Jul 20, 2026" />
 		<property name="downloader" ref="downloader"/>
 		<property name="parser" ref="parser"/>
 		<property name="dao" ref="dao"/>

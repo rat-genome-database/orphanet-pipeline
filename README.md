@@ -16,12 +16,12 @@ Orphanet rare-disease alignment file (CC BY 4.0, refreshed twice a year).
 ## What it does
 
 1. Download + StAX-parse product1 (disorders Orphanet flags obsolete — `OBSOLETE:` name or an `Obsolete entity` flag — are skipped, never loaded).
-2. Build match maps from the active RDO synonyms (`MIM:` and `MONDO:` names, **any**
-   synonym type — RDO stores OMIM ids as `xref`/`alt_id`/`primary_id`).
+2. Build match maps from the active RDO synonyms (`MESH:`, `MONDO:` and `MIM:` names, **any**
+   synonym type — RDO stores these ids as `xref`/`alt_id`/`primary_id`).
 3. Match each disorder to a **single** RDO term, using only **exact (`E`)** references:
-   - **TIER1** — by the disorder's OMIM reference(s) → RDO `MIM:` synonyms
+   - **TIER1** — by the disorder's MeSH reference(s) → RDO `MESH:` synonyms
    - **TIER2** — if TIER1 gives no/ambiguous match, by MONDO reference(s) → RDO `MONDO:` synonyms
-   - **TIER3** — if still no/ambiguous match, by MeSH reference(s) → RDO `MESH:` synonyms
+   - **TIER3** — if still no/ambiguous match, by OMIM reference(s) → RDO `MIM:` synonyms
 4. Attach `ORDO:<OrphaCode>` to the matched term as a synonym of type `xref`, source `ORDO`.
 5. Reconcile (insert / up-to-date / delete) only the xrefs owned by this pipeline
    (source `ORDO`); xrefs maintained by other sources (OBO, RGD, BULKLOAD, ...) are left alone.
@@ -43,9 +43,9 @@ also removed by reconciliation.
 ### Reported metrics
 
 ```
-MATCH_TIER1_OMIM    matched via OMIM (xref kept)
+MATCH_TIER1_MESH    matched via MeSH (xref kept)
 MATCH_TIER2_MONDO   matched via MONDO (xref kept)
-MATCH_TIER3_MESH    matched via MeSH (xref kept)
+MATCH_TIER3_OMIM    matched via OMIM (xref kept)
 MATCH_DIFF_SOURCE   matched, but ORDO xref already present from another source (skipped)
 NO_MATCH            no single RDO term found (logged to logs/no_match.log)
 MULTI_MATCH         ambiguous - more than one candidate term (logged to logs/multi_match.log)

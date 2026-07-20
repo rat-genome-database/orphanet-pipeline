@@ -1,3 +1,6 @@
+Jul 20, 2026
+  reordered match tiers to MeSH (tier1), MONDO (tier2), OMIM (tier3)
+
 Jun 22, 2026
   initial scaffold: downloads Orphadata product1 and reports cross-reference
   counts per target vocabulary (all relations vs. exact 'E' mappings);
