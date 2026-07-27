@@ -40,6 +40,11 @@ public class Dao {
         return ontologyXdao.getActiveSynonyms(ontId);
     }
 
+    /** all active ancestor (parent, transitively) term acc ids of the given term. */
+    public List<String> getAncestorAccIds(String termAcc) throws Exception {
+        return ontologyXdao.getAllActiveTermAncestorAccIds(termAcc);
+    }
+
     /** map of term acc id -&gt; term name for all active terms (used for human-readable logs). */
     public Map<String, String> getTermNameMap() throws Exception {
         Map<String, String> map = new HashMap<>();

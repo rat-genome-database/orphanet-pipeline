@@ -45,6 +45,9 @@
         <File name="obsolete" append="false" fileName="logs/obsolete.log">
             <PatternLayout pattern="%m%n"/>
         </File>
+        <File name="parent_conflict" append="false" fileName="logs/parent_conflict.log">
+            <PatternLayout pattern="%m%n"/>
+        </File>
     </Appenders>
 
     <Loggers>
@@ -77,6 +80,9 @@
         </Logger>
         <Logger name="obsolete" level="debug" additivity="false">
             <AppenderRef ref="obsolete"/>
+        </Logger>
+        <Logger name="parent_conflict" level="debug" additivity="false">
+            <AppenderRef ref="parent_conflict"/>
         </Logger>
     </Loggers>
 </Configuration>
