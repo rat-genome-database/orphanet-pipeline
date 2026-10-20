@@ -1,3 +1,6 @@
+Oct 20, 2026
+  migrated to postgres; updated dependencies
+
 Jul 27, 2026
   qc: skip candidate when the same ORDO id is already present (from another source) on a parent/ancestor term; reported in parent_conflict.log and counted as PARENT_CONFLICT
   updated dependencies
