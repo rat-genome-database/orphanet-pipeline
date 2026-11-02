@@ -47,6 +47,8 @@ MATCH_TIER1_MESH    matched via MeSH (xref kept)
 MATCH_TIER2_MONDO   matched via MONDO (xref kept)
 MATCH_TIER3_OMIM    matched via OMIM (xref kept)
 MATCH_DIFF_SOURCE   matched, but ORDO xref already present from another source (skipped)
+PARENT_CONFLICT     ORDO id already on an ancestor term from another source (skipped, logs/parent_conflict.log)
+DESCENDANT_CONFLICT ORDO id already on a descendant term from another source (skipped, logs/descendant_conflict.log)
 NO_MATCH            no single RDO term found (logged to logs/no_match.log)
 MULTI_MATCH         ambiguous - more than one candidate term (logged to logs/multi_match.log)
 OBSOLETE_SKIPPED    disorder obsolete in Orphanet - skipped, not loaded
