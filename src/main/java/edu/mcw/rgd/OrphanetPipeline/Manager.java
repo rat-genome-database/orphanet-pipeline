@@ -50,6 +50,7 @@ public class Manager {
     Logger multiMatchLog = LogManager.getLogger("multi_match");
     Logger obsoleteLog = LogManager.getLogger("obsolete");
     Logger parentConflictLog = LogManager.getLogger("parent_conflict");
+    Logger descendantConflictLog = LogManager.getLogger("descendant_conflict");
 
     enum Status { TIER1, TIER2, TIER3, NO_MATCH, MULTI_MATCH }
 
@@ -143,7 +144,7 @@ public class Manager {
                 + Utils.formatThousands(existingOrdo.size()) + " (source " + dao.getXrefSource() + "), "
                 + Utils.formatThousands(otherSourceOrdo.size()) + " (other sources)");
 
-        int tier1 = 0, tier2 = 0, tier3 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0, parentConflict = 0, obsolete = 0;
+        int tier1 = 0, tier2 = 0, tier3 = 0, noMatch = 0, multiMatch = 0, matchDiffSource = 0, parentConflict = 0, descendantConflict = 0, obsolete = 0;
         Set<String> obsoleteOrphaCodes = new HashSet<>(); // codes of obsolete disorders (for the obsolete report)
         Set<String> desired = new HashSet<>();            // termAcc|name we want present
         List<String[]> toInsert = new ArrayList<>();      // {termAcc, name}
@@ -196,6 +197,18 @@ public class Manager {
                 continue;
             }
 
+            // the reverse case: if the same ORDO id is already asserted (by another source) on a
+            // child/descendant of the matched term, skip -- the id belongs on the more specific child;
+            // typically an OMIM id that RDO places on a general term while Orphanet uses it for a subtype
+            String descendantAcc = descendantCarryingOrdo(m.termAcc, name, otherSourceOrdoByName);
+            if (descendantAcc != null) {
+                descendantConflict++;
+                descendantConflictLog.info(name + "\t" + d.getName()
+                        + "\tcandidate=" + m.termAcc + " [" + termNames.getOrDefault(m.termAcc, "") + "]"
+                        + "\tdescendant=" + descendantAcc + " [" + termNames.getOrDefault(descendantAcc, "") + "]");
+                continue;
+            }
+
             switch (m.status) {
                 case TIER1 -> tier1++;
                 case TIER2 -> tier2++;
@@ -240,6 +253,7 @@ public class Manager {
         log.info(String.format("%-18s: %s", "MATCH_TIER3_OMIM", Utils.formatThousands(tier3)));
         log.info(String.format("%-18s: %s", "MATCH_DIFF_SOURCE", Utils.formatThousands(matchDiffSource)));
         log.info(String.format("%-18s: %s", "PARENT_CONFLICT", Utils.formatThousands(parentConflict)));
+        log.info(String.format("%-18s: %s", "DESCENDANT_CONFLICT", Utils.formatThousands(descendantConflict)));
         log.info(String.format("%-18s: %s", "NO_MATCH", Utils.formatThousands(noMatch)));
         log.info(String.format("%-18s: %s", "MULTI_MATCH", Utils.formatThousands(multiMatch)));
         log.info(String.format("%-18s: %s", "OBSOLETE_SKIPPED", Utils.formatThousands(obsolete)));
@@ -342,6 +356,26 @@ public class Manager {
         Set<String> ancestors = new HashSet<>(dao.getAncestorAccIds(childTermAcc));
         for (String other : otherTerms) {
             if (!other.equals(childTermAcc) && ancestors.contains(other)) {
+                return other;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * If the same ORDO id is already present (from a source other than this pipeline) on a
+     * child/descendant of the matched term, return that descendant's acc id; otherwise null. Such a
+     * candidate is a false positive -- the id is authoritatively asserted on the more specific child,
+     * so it must not be duplicated onto the more general parent term.
+     */
+    private String descendantCarryingOrdo(String parentTermAcc, String ordoName,
+                                          Map<String, Set<String>> otherSourceOrdoByName) throws Exception {
+        Set<String> otherTerms = otherSourceOrdoByName.get(ordoName);
+        if (otherTerms == null || otherTerms.isEmpty()) {
+            return null;
+        }
+        for (String other : otherTerms) {
+            if (!other.equals(parentTermAcc) && dao.getAncestorAccIds(other).contains(parentTermAcc)) {
                 return other;
             }
         }
